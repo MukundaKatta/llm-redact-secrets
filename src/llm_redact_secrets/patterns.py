@@ -41,9 +41,7 @@ BUILTIN_PATTERNS: list[tuple[SecretType, re.Pattern[str], int]] = [
     ),
     (
         SecretType.AWS_SECRET,
-        re.compile(
-            r"(?i)aws_secret_access_key\s*[=:]\s*['\"]?([A-Za-z0-9/+=]{40})['\"]?"
-        ),
+        re.compile(r"(?i)aws_secret_access_key\s*[=:]\s*['\"]?([A-Za-z0-9/+=]{40})['\"]?"),
         1,
     ),
     (
@@ -90,7 +88,10 @@ BUILTIN_PATTERNS: list[tuple[SecretType, re.Pattern[str], int]] = [
     (
         SecretType.BEARER_TOKEN,
         # Authorization: Bearer <token>. We capture only the token in group 1.
-        re.compile(r"(?i)\bAuthorization\s*:\s*Bearer\s+([A-Za-z0-9_\-\.=]+)"),
+        # Internal `.` and `=` are allowed (JWT-style tokens and base64 `=`
+        # padding), but the token may not END on a `.` so a trailing sentence
+        # period is not swallowed into the redacted value.
+        re.compile(r"(?i)\bAuthorization\s*:\s*Bearer\s+([A-Za-z0-9_\-=]+(?:\.[A-Za-z0-9_\-=]+)*)"),
         1,
     ),
 ]

@@ -95,9 +95,7 @@ class SecretRedactor:
                 value = m.group(grp)
                 start = m.start(grp)
                 end = m.end(grp)
-                hits.append(
-                    SecretHit(type=type_name, value=value, start=start, end=end)
-                )
+                hits.append(SecretHit(type=type_name, value=value, start=start, end=end))
         if self._entropy_check:
             hits.extend(self._detect_high_entropy(text, hits))
         return self._dedupe_overlaps(hits)
@@ -148,7 +146,7 @@ class SecretRedactor:
                 # already covered by an earlier hit (defensive; dedupe
                 # should have removed these). skip.
                 continue
-            out_parts.append(text[cursor:h.start])
+            out_parts.append(text[cursor : h.start])
             placeholder = f"<{h.type}_{index_map[(h.type, h.value)]}>"
             out_parts.append(placeholder)
             cursor = h.end
@@ -169,9 +167,7 @@ class SecretRedactor:
 
     # ---- internal ----
 
-    def _detect_high_entropy(
-        self, text: str, existing: list[SecretHit]
-    ) -> list[SecretHit]:
+    def _detect_high_entropy(self, text: str, existing: list[SecretHit]) -> list[SecretHit]:
         """Find high-entropy runs that don't overlap an existing hit."""
         out: list[SecretHit] = []
         for m in HIGH_ENTROPY_CANDIDATE.finditer(text):

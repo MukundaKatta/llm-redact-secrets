@@ -131,6 +131,27 @@ def test_bearer_header_extracts_token_only():
     assert "Bearer" not in bearer_hits[0].value
 
 
+def test_bearer_does_not_swallow_trailing_period():
+    r = SecretRedactor()
+    text = "Authorization: Bearer abc123token. The end."
+    redacted, hits = r.redact(text)
+    bearer_hits = [h for h in hits if h.type == SecretType.BEARER_TOKEN]
+    assert len(bearer_hits) == 1
+    # the sentence-ending period must not be captured into the token
+    assert bearer_hits[0].value == "abc123token"
+    assert redacted == "Authorization: Bearer <BEARER_TOKEN_0>. The end."
+
+
+def test_bearer_keeps_internal_dots_and_padding():
+    r = SecretRedactor()
+    text = "Authorization: Bearer abc.def.ghi="
+    hits = r.detect(text)
+    bearer_hits = [h for h in hits if h.type == SecretType.BEARER_TOKEN]
+    assert len(bearer_hits) == 1
+    # internal dots and trailing base64 `=` padding are preserved
+    assert bearer_hits[0].value == "abc.def.ghi="
+
+
 # ---------- close-but-not-match negatives ----------
 
 
@@ -255,9 +276,7 @@ def test_multiple_types_in_one_text():
 
 def test_types_subset_filter_excludes_unwanted():
     r = SecretRedactor(types=[SecretType.AWS_KEY])
-    text = (
-        "AKIAIOSFODNN7EXAMPLE and ghp_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ"
-    )
+    text = "AKIAIOSFODNN7EXAMPLE and ghp_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ"
     hits = r.detect(text)
     assert all(h.type == SecretType.AWS_KEY for h in hits)
     assert len(hits) == 1
@@ -286,9 +305,7 @@ def test_entropy_check_off_by_default():
 def test_entropy_check_on_catches_long_high_entropy_run():
     r = SecretRedactor(entropy_check=True)
     # 64 char high-entropy hex blob, no vendor prefix
-    blob = (
-        "secret=a3f5b9c2d7e1f8b4a6e0d2c5f8b1a4e7d9c3b6f8a1b2c3d4e5f6a7b8c9d0e1f2"
-    )
+    blob = "secret=a3f5b9c2d7e1f8b4a6e0d2c5f8b1a4e7d9c3b6f8a1b2c3d4e5f6a7b8c9d0e1f2"
     hits = r.detect(blob)
     assert any(h.type == SecretType.HIGH_ENTROPY for h in hits)
 
@@ -306,10 +323,7 @@ def test_entropy_check_does_not_overlap_known_prefix_hit():
     # AWS_KEY hit (the AWS key starts before but the entropy candidate is
     # >= 32 chars so they shouldn't overlap on the AWS key alone).
     r = SecretRedactor(entropy_check=True)
-    text = (
-        "key=AKIAIOSFODNN7EXAMPLE and "
-        "blob=a3f5b9c2d7e1f8b4a6e0d2c5f8b1a4e7d9c3b6f8a1b2c3d4e5f6"
-    )
+    text = "key=AKIAIOSFODNN7EXAMPLE and blob=a3f5b9c2d7e1f8b4a6e0d2c5f8b1a4e7d9c3b6f8a1b2c3d4e5f6"
     hits = r.detect(text)
     types = [h.type for h in hits]
     assert SecretType.AWS_KEY in types
@@ -358,4 +372,4 @@ def test_secrethit_offsets_match_source():
     hits = r.detect(text)
     assert len(hits) == 1
     h = hits[0]
-    assert text[h.start:h.end] == h.value
+    assert text[h.start : h.end] == h.value
